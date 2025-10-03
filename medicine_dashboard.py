@@ -670,13 +670,43 @@ def create_indication_bar_chart(df_indication, top_n=15):
                       yaxis={'autorange':'reversed'})
     return fig
 
+def create_ingredient_treemap(df_ingredients):
+    """Treemap showing ingredient composition across medicines"""
+    ingredient_counts = df_ingredients['Ingredient Name'].value_counts().reset_index()
+    ingredient_counts.columns = ['Ingredient', 'Medicine Count']
+    
+    fig = px.treemap(
+        ingredient_counts,
+        path=['Ingredient'],
+        values='Medicine Count',
+        title='Ingredient Composition Treemap',
+        color='Medicine Count',
+        color_continuous_scale='Blues'
+    )
+    
+    fig.update_traces(textinfo='label+value')
+    return fig
+
+def create_polarization_boxplot(df_main):
+    """Box plot for review polarization scores"""
+    fig = px.box(
+        df_main,
+        y='Review Polarization',
+        points='all',
+        color_discrete_sequence=['#EA4335'],
+        title='Review Polarization Box Plot'
+    )
+    fig.update_layout(yaxis_title='Polarization Score (Std Dev)')
+    return fig
+
+
 
 # =====================================================================
 # PART 4: DASH APPLICATION
 # =====================================================================
 
 def create_dashboard(tables, analytics):
-    """Create interactive Dash dashboard with enhanced visualizations"""
+    """Create interactive Dash dashboard with enhanced visualizations including treemap and box plot"""
     
     import dash
     from dash import dcc, html, dash_table
@@ -704,139 +734,94 @@ def create_dashboard(tables, analytics):
     app.layout = html.Div([
         html.H1("Medicine Review Dashboard", style={'textAlign': 'center', 'color': '#1a73e8', 'marginBottom': '20px'}),
         
-        # -------------------------
         # KPI Cards
-        # -------------------------
         html.Div([
-            html.Div([
-                html.H3("Total Medicines"),
-                html.H2(f"{kpis['total_medicines']}", style={'color':'#1a73e8'})
-            ], className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
-                                            'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
-            
-            html.Div([
-                html.H3("Manufacturers"),
-                html.H2(f"{kpis['unique_manufacturers']}", style={'color':'#1a73e8'})
-            ], className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
-                                            'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
-            
-            html.Div([
-                html.H3("Unique Ingredients"),
-                html.H2(f"{kpis['unique_ingredients']}", style={'color':'#1a73e8'})
-            ], className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
-                                            'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
-            
-            html.Div([
-                html.H3("Avg Excellent %"),
-                html.H2(f"{kpis['avg_excellent']:.1f}%", style={'color':'#34A853'})
-            ], className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
-                                            'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
+            html.Div([html.H3("Total Medicines"), html.H2(f"{kpis['total_medicines']}", style={'color':'#1a73e8'})],
+                     className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
+                                                  'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
+            html.Div([html.H3("Manufacturers"), html.H2(f"{kpis['unique_manufacturers']}", style={'color':'#1a73e8'})],
+                     className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
+                                                  'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
+            html.Div([html.H3("Unique Ingredients"), html.H2(f"{kpis['unique_ingredients']}", style={'color':'#1a73e8'})],
+                     className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
+                                                  'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
+            html.Div([html.H3("Avg Excellent %"), html.H2(f"{kpis['avg_excellent']:.1f}%", style={'color':'#34A853'})],
+                     className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
+                                                  'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
         ], style={'textAlign':'center'}),
         
         html.Hr(),
         
-        # -------------------------
         # Filters
-        # -------------------------
         html.Div([
-            html.Div([
-                html.Label("Manufacturer:"),
-                dcc.Dropdown(
-                    id='manufacturer-filter',
-                    options=[{'label':'All','value':'All'}]+
-                            [{'label':m,'value':m} for m in df_main['Manufacturer'].unique()],
-                    value='All',
-                    multi=True
-                )
-            ], style={'width':'30%','display':'inline-block','padding':'10px'}),
+            html.Div([html.Label("Manufacturer:"), dcc.Dropdown(
+                id='manufacturer-filter',
+                options=[{'label':'All','value':'All'}]+
+                        [{'label':m,'value':m} for m in df_main['Manufacturer'].unique()],
+                value='All', multi=True)], style={'width':'30%','display':'inline-block','padding':'10px'}),
             
-            html.Div([
-                html.Label("Medicine Type:"),
-                dcc.Dropdown(
-                    id='type-filter',
-                    options=[{'label':'All','value':'All'}]+
-                            [{'label':t,'value':t} for t in df_main['Medicine Type'].unique()],
-                    value='All',
-                    multi=True
-                )
-            ], style={'width':'30%','display':'inline-block','padding':'10px'}),
+            html.Div([html.Label("Medicine Type:"), dcc.Dropdown(
+                id='type-filter',
+                options=[{'label':'All','value':'All'}]+
+                        [{'label':t,'value':t} for t in df_main['Medicine Type'].unique()],
+                value='All', multi=True)], style={'width':'30%','display':'inline-block','padding':'10px'}),
             
-            html.Div([
-                html.Label("Min Excellent %:"),
-                dcc.Slider(
-                    id='excellent-slider',
-                    min=0,
-                    max=100,
-                    step=5,
-                    value=0,
-                    marks={i:str(i) for i in range(0,101,20)}
-                )
-            ], style={'width':'30%','display':'inline-block','padding':'10px'}),
+            html.Div([html.Label("Min Excellent %:"), dcc.Slider(
+                id='excellent-slider', min=0, max=100, step=5, value=0,
+                marks={i:str(i) for i in range(0,101,20)})],
+                style={'width':'30%','display':'inline-block','padding':'10px'}),
         ], style={'backgroundColor':'#e8f0fe','padding':'20px','borderRadius':'10px','margin':'20px'}),
         
         html.Hr(),
         
-        # -------------------------
-        # First Row: Pie / Donut Charts
-        # -------------------------
+        # Row 1: Pie / Donut Charts
         html.Div([
-            html.Div([
-                dcc.Graph(id='medicine-type-pie', figure=create_medicine_type_pie(df_main))
-            ], style={'width':'48%','display':'inline-block'}),
-            
-            html.Div([
-                dcc.Graph(id='review-distribution-pie', figure=create_review_distribution_pie(df_main))
-            ], style={'width':'48%','display':'inline-block','float':'right'}),
+            html.Div([dcc.Graph(id='medicine-type-pie', figure=create_medicine_type_pie(df_main))],
+                     style={'width':'48%','display':'inline-block'}),
+            html.Div([dcc.Graph(id='review-distribution-pie', figure=create_review_distribution_pie(df_main))],
+                     style={'width':'48%','display':'inline-block','float':'right'}),
         ]),
         
-        # -------------------------
-        # Second Row: Bar Charts
-        # -------------------------
+        # Row 2: Bar Charts
         html.Div([
-            html.Div([
-                dcc.Graph(id='top-manufacturers', figure=create_top_manufacturers_chart(df_main,10))
-            ], style={'width':'48%','display':'inline-block'}),
-            
-            html.Div([
-                dcc.Graph(id='top-ingredients', figure=create_top_ingredients_chart(df_ingredients,15))
-            ], style={'width':'48%','display':'inline-block','float':'right'}),
+            html.Div([dcc.Graph(id='top-manufacturers', figure=create_top_manufacturers_chart(df_main,10))],
+                     style={'width':'48%','display':'inline-block'}),
+            html.Div([dcc.Graph(id='top-ingredients', figure=create_top_ingredients_chart(df_ingredients,15))],
+                     style={'width':'48%','display':'inline-block','float':'right'}),
         ]),
         
-        # -------------------------
-        # Third Row: Indications & Side Effects
-        # -------------------------
+        # Row 3: Indications & Side Effects
         html.Div([
-            html.Div([
-                dcc.Graph(id='top-indications', figure=create_indication_bar_chart(df_indication,15))
-            ], style={'width':'48%','display':'inline-block'}),
-            
-            html.Div([
-                dcc.Graph(id='side-effect-pie', figure=create_side_effect_pie(df_side_effect,10))
-            ], style={'width':'48%','display':'inline-block','float':'right'}),
+            html.Div([dcc.Graph(id='top-indications', figure=create_indication_bar_chart(df_indication,15))],
+                     style={'width':'48%','display':'inline-block'}),
+            html.Div([dcc.Graph(id='side-effect-pie', figure=create_side_effect_pie(df_side_effect,10))],
+                     style={'width':'48%','display':'inline-block','float':'right'}),
         ]),
         
-        # -------------------------
-        # Fourth Row: Existing Charts
-        # -------------------------
+        # Row 4: Manufacturer & Single vs Combo
         html.Div([
-            html.Div([
-                dcc.Graph(id='manufacturer-chart', figure=create_manufacturer_stacked_bar(df_manufacturer))
-            ], style={'width':'48%','display':'inline-block'}),
-            
-            html.Div([
-                dcc.Graph(id='single-combo-chart', figure=create_single_vs_combo_chart(df_comparison))
-            ], style={'width':'48%','display':'inline-block','float':'right'}),
+            html.Div([dcc.Graph(id='manufacturer-chart', figure=create_manufacturer_stacked_bar(df_manufacturer))],
+                     style={'width':'48%','display':'inline-block'}),
+            html.Div([dcc.Graph(id='single-combo-chart', figure=create_single_vs_combo_chart(df_comparison))],
+                     style={'width':'48%','display':'inline-block','float':'right'}),
         ]),
         
+        # Row 5: Polarization Charts
         html.Div([
-            dcc.Graph(id='polarization-chart', figure=create_polarization_chart(df_main))
+            html.Div([dcc.Graph(id='polarization-chart', figure=create_polarization_chart(df_main))],
+                     style={'width':'48%','display':'inline-block'}),
+            html.Div([dcc.Graph(id='polarization-boxplot', figure=create_polarization_boxplot(df_main))],
+                     style={'width':'48%','display':'inline-block','float':'right'}),
+        ]),
+        
+        # Row 6: Treemap
+        html.Div([
+            dcc.Graph(id='ingredient-treemap', figure=create_ingredient_treemap(df_ingredients))
         ], style={'width':'100%'}),
         
         html.Hr(),
         
-        # -------------------------
         # Medicine Details Table
-        # -------------------------
         html.Div([
             html.H3("Medicine Details"),
             dash_table.DataTable(
@@ -850,10 +835,8 @@ def create_dashboard(tables, analytics):
                 filter_action='native',
                 style_cell={'textAlign':'left'},
                 style_data_conditional=[
-                    {'if':{'column_id':'Excellent Review %'},
-                     'backgroundColor':'#d4edda','color':'#155724'},
-                    {'if':{'column_id':'Poor Review %'},
-                     'backgroundColor':'#f8d7da','color':'#721c24'}
+                    {'if':{'column_id':'Excellent Review %'}, 'backgroundColor':'#d4edda','color':'#155724'},
+                    {'if':{'column_id':'Poor Review %'}, 'backgroundColor':'#f8d7da','color':'#721c24'}
                 ]
             )
         ], style={'margin':'20px'})
@@ -872,6 +855,8 @@ def create_dashboard(tables, analytics):
          Output('manufacturer-chart','figure'),
          Output('single-combo-chart','figure'),
          Output('polarization-chart','figure'),
+         Output('polarization-boxplot','figure'),
+         Output('ingredient-treemap','figure'),
          Output('medicine-table','data')],
         [Input('manufacturer-filter','value'),
          Input('type-filter','value'),
@@ -920,10 +905,14 @@ def create_dashboard(tables, analytics):
             create_manufacturer_stacked_bar(df_manufacturer_filtered),
             create_single_vs_combo_chart(df_comparison_filtered),
             create_polarization_chart(filtered_df),
+            create_polarization_boxplot(filtered_df),
+            create_ingredient_treemap(df_ingredients[df_ingredients['Medicine Name'].isin(filtered_df['Medicine Name'])]),
             filtered_df.to_dict('records')
         )
     
     return app
+
+
 
 # =====================================================================
 # PART 5: MAIN EXECUTION
