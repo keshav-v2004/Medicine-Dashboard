@@ -582,22 +582,115 @@ def create_polarization_chart(df_main):
     
     return fig
 
+# ===========================
+# Additional Visualizations
+# ===========================
+
+def create_medicine_type_pie(df_main):
+    """Pie chart of Single vs Combination medicines"""
+    type_counts = df_main['Medicine Type'].value_counts()
+    fig = px.pie(
+        names=type_counts.index,
+        values=type_counts.values,
+        title="Medicine Type Distribution",
+        hole=0.4  # makes it a donut chart
+    )
+    fig.update_traces(textinfo='percent+label', pull=[0.05, 0.05])
+    return fig
+
+def create_review_distribution_pie(df_main):
+    """Donut chart of overall review distribution"""
+    review_totals = [
+        df_main['Excellent Review %'].sum(),
+        df_main['Average Review %'].sum(),
+        df_main['Poor Review %'].sum()
+    ]
+    labels = ['Excellent', 'Average', 'Poor']
+    fig = go.Figure(go.Pie(
+        labels=labels,
+        values=review_totals,
+        hole=0.4,
+        textinfo='percent+label',
+        marker_colors=['#34A853', '#FBBC04', '#EA4335']
+    ))
+    fig.update_layout(title="Overall Review Distribution")
+    return fig
+
+def create_top_manufacturers_chart(df_main, top_n=10):
+    """Bar chart of top manufacturers by medicine count"""
+    top_manuf = df_main['Manufacturer'].value_counts().nlargest(top_n)
+    fig = go.Figure(go.Bar(
+        x=top_manuf.index,
+        y=top_manuf.values,
+        marker_color='#4285F4',
+        text=top_manuf.values,
+        textposition='auto'
+    ))
+    fig.update_layout(title=f"Top {top_n} Manufacturers by Medicine Count",
+                      xaxis_title='Manufacturer', yaxis_title='Number of Medicines')
+    return fig
+
+def create_top_ingredients_chart(df_ingredients, top_n=15):
+    """Bar chart of top ingredients by medicine usage"""
+    top_ingredients = df_ingredients['Ingredient Name'].value_counts().nlargest(top_n)
+    fig = go.Figure(go.Bar(
+        x=top_ingredients.values,
+        y=top_ingredients.index,
+        orientation='h',
+        marker_color='#FBBC04',
+        text=top_ingredients.values,
+        textposition='auto'
+    ))
+    fig.update_layout(title=f"Top {top_n} Ingredients by Medicine Count",
+                      xaxis_title='Number of Medicines', yaxis_title='Ingredient',
+                      yaxis={'autorange':'reversed'})
+    return fig
+
+def create_side_effect_pie(df_side_effect, top_n=10):
+    """Pie chart for most common side effects"""
+    top_effects = df_side_effect.nlargest(top_n, 'Frequency')
+    fig = px.pie(top_effects, names=top_effects.index, values='Frequency',
+                 title=f"Top {top_n} Side Effects", hole=0.3)
+    fig.update_traces(textinfo='percent+label')
+    return fig
+
+def create_indication_bar_chart(df_indication, top_n=15):
+    """Bar chart of top indications"""
+    df_top = df_indication.nlargest(top_n, 'Frequency')
+    fig = go.Figure(go.Bar(
+        x=df_top['Frequency'],
+        y=df_top.index,
+        orientation='h',
+        marker_color='#34A853',
+        text=df_top['Frequency'],
+        textposition='auto'
+    ))
+    fig.update_layout(title=f"Top {top_n} Indications by Frequency",
+                      xaxis_title='Frequency', yaxis_title='Indication',
+                      yaxis={'autorange':'reversed'})
+    return fig
+
+
 # =====================================================================
 # PART 4: DASH APPLICATION
 # =====================================================================
 
 def create_dashboard(tables, analytics):
-    """Create interactive Dash dashboard"""
+    """Create interactive Dash dashboard with enhanced visualizations"""
+    
+    import dash
+    from dash import dcc, html, dash_table
+    from dash.dependencies import Input, Output
     
     app = dash.Dash(__name__)
     
-    # Get data
+    # Data
     df_main = tables['main']
     df_uses = tables['uses']
     df_side_effects = tables['side_effects']
     df_ingredients = tables['ingredients']
     
-    # Calculate analytics
+    # Analytics
     kpis = analytics.calculate_kpis()
     df_manufacturer = analytics.get_manufacturer_performance()
     df_ingredient_stats = analytics.get_ingredient_performance()
@@ -605,212 +698,206 @@ def create_dashboard(tables, analytics):
     df_side_effect = analytics.get_side_effect_analysis()
     df_comparison = analytics.get_single_vs_combo()
     
+    # -------------------------
     # Layout
+    # -------------------------
     app.layout = html.Div([
-        html.H1('Medicine Review Dashboard', style={'textAlign': 'center', 'color': '#1a73e8'}),
+        html.H1("Medicine Review Dashboard", style={'textAlign': 'center', 'color': '#1a73e8', 'marginBottom': '20px'}),
         
-        # KPI Cards Row
+        # -------------------------
+        # KPI Cards
+        # -------------------------
         html.Div([
             html.Div([
-                html.H3('Total Medicines'),
-                html.H2(f"{kpis['total_medicines']}", style={'color': '#1a73e8'})
-            ], className='kpi-card', style={'display': 'inline-block', 'width': '23%', 
-                                            'padding': '20px', 'margin': '10px',
-                                            'backgroundColor': '#f8f9fa', 'borderRadius': '10px'}),
+                html.H3("Total Medicines"),
+                html.H2(f"{kpis['total_medicines']}", style={'color':'#1a73e8'})
+            ], className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
+                                            'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
             
             html.Div([
-                html.H3('Manufacturers'),
-                html.H2(f"{kpis['unique_manufacturers']}", style={'color': '#1a73e8'})
-            ], className='kpi-card', style={'display': 'inline-block', 'width': '23%', 
-                                            'padding': '20px', 'margin': '10px',
-                                            'backgroundColor': '#f8f9fa', 'borderRadius': '10px'}),
+                html.H3("Manufacturers"),
+                html.H2(f"{kpis['unique_manufacturers']}", style={'color':'#1a73e8'})
+            ], className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
+                                            'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
             
             html.Div([
-                html.H3('Unique Ingredients'),
-                html.H2(f"{kpis['unique_ingredients']}", style={'color': '#1a73e8'})
-            ], className='kpi-card', style={'display': 'inline-block', 'width': '23%', 
-                                            'padding': '20px', 'margin': '10px',
-                                            'backgroundColor': '#f8f9fa', 'borderRadius': '10px'}),
+                html.H3("Unique Ingredients"),
+                html.H2(f"{kpis['unique_ingredients']}", style={'color':'#1a73e8'})
+            ], className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
+                                            'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
             
             html.Div([
-                html.H3('Avg Excellent %'),
-                html.H2(f"{kpis['avg_excellent']:.1f}%", style={'color': '#34A853'})
-            ], className='kpi-card', style={'display': 'inline-block', 'width': '23%', 
-                                            'padding': '20px', 'margin': '10px',
-                                            'backgroundColor': '#f8f9fa', 'borderRadius': '10px'}),
-        ], style={'textAlign': 'center'}),
+                html.H3("Avg Excellent %"),
+                html.H2(f"{kpis['avg_excellent']:.1f}%", style={'color':'#34A853'})
+            ], className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
+                                            'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
+        ], style={'textAlign':'center'}),
         
-        # Filters Section
+        html.Hr(),
+        
+        # -------------------------
+        # Filters
+        # -------------------------
         html.Div([
-            html.H3('Filters'),
-            
             html.Div([
-                html.Label('Manufacturer:'),
+                html.Label("Manufacturer:"),
                 dcc.Dropdown(
                     id='manufacturer-filter',
-                    options=[{'label': 'All', 'value': 'All'}] + 
-                            [{'label': m, 'value': m} for m in df_main['Manufacturer'].unique()],
+                    options=[{'label':'All','value':'All'}]+
+                            [{'label':m,'value':m} for m in df_main['Manufacturer'].unique()],
                     value='All',
                     multi=True
                 )
-            ], style={'width': '30%', 'display': 'inline-block', 'padding': '10px'}),
+            ], style={'width':'30%','display':'inline-block','padding':'10px'}),
             
             html.Div([
-                html.Label('Medicine Type:'),
+                html.Label("Medicine Type:"),
                 dcc.Dropdown(
                     id='type-filter',
-                    options=[{'label': 'All', 'value': 'All'}] + 
-                            [{'label': t, 'value': t} for t in df_main['Medicine Type'].unique()],
+                    options=[{'label':'All','value':'All'}]+
+                            [{'label':t,'value':t} for t in df_main['Medicine Type'].unique()],
                     value='All',
                     multi=True
                 )
-            ], style={'width': '30%', 'display': 'inline-block', 'padding': '10px'}),
+            ], style={'width':'30%','display':'inline-block','padding':'10px'}),
             
             html.Div([
-                html.Label('Min Excellent %:'),
+                html.Label("Min Excellent %:"),
                 dcc.Slider(
                     id='excellent-slider',
                     min=0,
                     max=100,
                     step=5,
                     value=0,
-                    marks={i: str(i) for i in range(0, 101, 20)}
+                    marks={i:str(i) for i in range(0,101,20)}
                 )
-            ], style={'width': '30%', 'display': 'inline-block', 'padding': '10px'}),
-        ], style={'backgroundColor': '#e8f0fe', 'padding': '20px', 'borderRadius': '10px', 'margin': '20px'}),
+            ], style={'width':'30%','display':'inline-block','padding':'10px'}),
+        ], style={'backgroundColor':'#e8f0fe','padding':'20px','borderRadius':'10px','margin':'20px'}),
         
-        # Main Charts
+        html.Hr(),
+        
+        # -------------------------
+        # First Row: Pie / Donut Charts
+        # -------------------------
         html.Div([
-            # Manufacturer Performance
             html.Div([
-                dcc.Graph(
-                    id='manufacturer-chart',
-                    figure=create_manufacturer_stacked_bar(df_manufacturer)
-                )
-            ], style={'width': '100%'}),
+                dcc.Graph(id='medicine-type-pie', figure=create_medicine_type_pie(df_main))
+            ], style={'width':'48%','display':'inline-block'}),
             
-            # Top Medicines - Side by Side
             html.Div([
-                html.Div([
-                    dcc.Graph(
-                        id='top-excellent-chart',
-                        figure=create_top_medicines_chart(df_main, 'Excellent Review %', 15)
-                    )
-                ], style={'width': '48%', 'display': 'inline-block'}),
-                
-                html.Div([
-                    dcc.Graph(
-                        id='top-poor-chart',
-                        figure=create_top_medicines_chart(df_main, 'Poor Review %', 15)
-                    )
-                ], style={'width': '48%', 'display': 'inline-block', 'float': 'right'}),
-            ]),
+                dcc.Graph(id='review-distribution-pie', figure=create_review_distribution_pie(df_main))
+            ], style={'width':'48%','display':'inline-block','float':'right'}),
+        ]),
+        
+        # -------------------------
+        # Second Row: Bar Charts
+        # -------------------------
+        html.Div([
+            html.Div([
+                dcc.Graph(id='top-manufacturers', figure=create_top_manufacturers_chart(df_main,10))
+            ], style={'width':'48%','display':'inline-block'}),
             
-            # Ingredient Analysis
             html.Div([
-                dcc.Graph(
-                    id='ingredient-chart',
-                    figure=create_ingredient_leaderboard(df_ingredient_stats, 20)
-                )
-            ], style={'width': '100%'}),
+                dcc.Graph(id='top-ingredients', figure=create_top_ingredients_chart(df_ingredients,15))
+            ], style={'width':'48%','display':'inline-block','float':'right'}),
+        ]),
+        
+        # -------------------------
+        # Third Row: Indications & Side Effects
+        # -------------------------
+        html.Div([
+            html.Div([
+                dcc.Graph(id='top-indications', figure=create_indication_bar_chart(df_indication,15))
+            ], style={'width':'48%','display':'inline-block'}),
             
-            # Single vs Combo
             html.Div([
-                dcc.Graph(
-                    id='single-combo-chart',
-                    figure=create_single_vs_combo_chart(df_comparison)
-                )
-            ], style={'width': '48%', 'display': 'inline-block'}),
+                dcc.Graph(id='side-effect-pie', figure=create_side_effect_pie(df_side_effect,10))
+            ], style={'width':'48%','display':'inline-block','float':'right'}),
+        ]),
+        
+        # -------------------------
+        # Fourth Row: Existing Charts
+        # -------------------------
+        html.Div([
+            html.Div([
+                dcc.Graph(id='manufacturer-chart', figure=create_manufacturer_stacked_bar(df_manufacturer))
+            ], style={'width':'48%','display':'inline-block'}),
             
-            # Polarization
             html.Div([
-                dcc.Graph(
-                    id='polarization-chart',
-                    figure=create_polarization_chart(df_main)
-                )
-            ], style={'width': '48%', 'display': 'inline-block', 'float': 'right'}),
-            
-            # Indication Analysis
-            html.Div([
-                dcc.Graph(
-                    id='indication-chart',
-                    figure=create_indication_chart(df_indication, 15)
-                )
-            ], style={'width': '100%'}),
-            
-            # Side Effect Scatter
-            html.Div([
-                dcc.Graph(
-                    id='side-effect-scatter',
-                    figure=create_side_effect_scatter(df_side_effect)
-                )
-            ], style={'width': '100%'}),
-            
-            # Medicine Detail Table
-            html.Div([
-                html.H3('Medicine Details'),
-                dash_table.DataTable(
-                    id='medicine-table',
-                    columns=[
-                        {'name': 'Medicine Name', 'id': 'Medicine Name'},
-                        {'name': 'Manufacturer', 'id': 'Manufacturer'},
-                        {'name': 'Type', 'id': 'Medicine Type'},
-                        {'name': 'Excellent %', 'id': 'Excellent Review %'},
-                        {'name': 'Average %', 'id': 'Average Review %'},
-                        {'name': 'Poor %', 'id': 'Poor Review %'},
-                        {'name': 'Polarization', 'id': 'Review Polarization'}
-                    ],
-                    data=df_main.to_dict('records'),
-                    page_size=20,
-                    sort_action='native',
-                    filter_action='native',
-                    style_cell={'textAlign': 'left'},
-                    style_data_conditional=[
-                        {
-                            'if': {'column_id': 'Excellent Review %'},
-                            'backgroundColor': '#d4edda',
-                            'color': '#155724'
-                        },
-                        {
-                            'if': {'column_id': 'Poor Review %'},
-                            'backgroundColor': '#f8d7da',
-                            'color': '#721c24'
-                        }
-                    ]
-                )
-            ], style={'margin': '20px'}),
-        ])
+                dcc.Graph(id='single-combo-chart', figure=create_single_vs_combo_chart(df_comparison))
+            ], style={'width':'48%','display':'inline-block','float':'right'}),
+        ]),
+        
+        html.Div([
+            dcc.Graph(id='polarization-chart', figure=create_polarization_chart(df_main))
+        ], style={'width':'100%'}),
+        
+        html.Hr(),
+        
+        # -------------------------
+        # Medicine Details Table
+        # -------------------------
+        html.Div([
+            html.H3("Medicine Details"),
+            dash_table.DataTable(
+                id='medicine-table',
+                columns=[{'name':c,'id':c} for c in ['Medicine Name','Manufacturer','Medicine Type',
+                                                     'Excellent Review %','Average Review %','Poor Review %',
+                                                     'Review Polarization']],
+                data=df_main.to_dict('records'),
+                page_size=20,
+                sort_action='native',
+                filter_action='native',
+                style_cell={'textAlign':'left'},
+                style_data_conditional=[
+                    {'if':{'column_id':'Excellent Review %'},
+                     'backgroundColor':'#d4edda','color':'#155724'},
+                    {'if':{'column_id':'Poor Review %'},
+                     'backgroundColor':'#f8d7da','color':'#721c24'}
+                ]
+            )
+        ], style={'margin':'20px'})
     ])
     
-    # Callbacks for interactivity
+    # -------------------------
+    # Callback for Filters
+    # -------------------------
     @app.callback(
-        [Output('manufacturer-chart', 'figure'),
-         Output('top-excellent-chart', 'figure'),
-         Output('top-poor-chart', 'figure'),
-         Output('medicine-table', 'data')],
-        [Input('manufacturer-filter', 'value'),
-         Input('type-filter', 'value'),
-         Input('excellent-slider', 'value')]
+        [Output('medicine-type-pie','figure'),
+         Output('review-distribution-pie','figure'),
+         Output('top-manufacturers','figure'),
+         Output('top-ingredients','figure'),
+         Output('top-indications','figure'),
+         Output('side-effect-pie','figure'),
+         Output('manufacturer-chart','figure'),
+         Output('single-combo-chart','figure'),
+         Output('polarization-chart','figure'),
+         Output('medicine-table','data')],
+        [Input('manufacturer-filter','value'),
+         Input('type-filter','value'),
+         Input('excellent-slider','value')]
     )
     def update_charts(manufacturer_filter, type_filter, excellent_min):
-        # Filter data
         filtered_df = df_main.copy()
         
+        # Filter by manufacturer
         if manufacturer_filter != 'All' and manufacturer_filter:
-            if isinstance(manufacturer_filter, list):
+            if isinstance(manufacturer_filter,list):
                 filtered_df = filtered_df[filtered_df['Manufacturer'].isin(manufacturer_filter)]
             else:
-                filtered_df = filtered_df[filtered_df['Manufacturer'] == manufacturer_filter]
+                filtered_df = filtered_df[filtered_df['Manufacturer']==manufacturer_filter]
         
+        # Filter by type
         if type_filter != 'All' and type_filter:
-            if isinstance(type_filter, list):
+            if isinstance(type_filter,list):
                 filtered_df = filtered_df[filtered_df['Medicine Type'].isin(type_filter)]
             else:
-                filtered_df = filtered_df[filtered_df['Medicine Type'] == type_filter]
+                filtered_df = filtered_df[filtered_df['Medicine Type']==type_filter]
         
+        # Filter by min excellent %
         filtered_df = filtered_df[filtered_df['Excellent Review %'] >= excellent_min]
         
-        # Recalculate charts
+        # Analytics for filtered data
         analytics_filtered = MedicineAnalytics({
             'main': filtered_df,
             'uses': df_uses[df_uses['Medicine Name'].isin(filtered_df['Medicine Name'])],
@@ -819,11 +906,20 @@ def create_dashboard(tables, analytics):
         })
         
         df_manufacturer_filtered = analytics_filtered.get_manufacturer_performance()
+        df_comparison_filtered = analytics_filtered.get_single_vs_combo()
+        df_indication_filtered = analytics_filtered.get_indication_analysis()
+        df_side_effect_filtered = analytics_filtered.get_side_effect_analysis()
         
         return (
+            create_medicine_type_pie(filtered_df),
+            create_review_distribution_pie(filtered_df),
+            create_top_manufacturers_chart(filtered_df,10),
+            create_top_ingredients_chart(df_ingredients[df_ingredients['Medicine Name'].isin(filtered_df['Medicine Name'])],15),
+            create_indication_bar_chart(df_indication_filtered,15),
+            create_side_effect_pie(df_side_effect_filtered,10),
             create_manufacturer_stacked_bar(df_manufacturer_filtered),
-            create_top_medicines_chart(filtered_df, 'Excellent Review %', 15),
-            create_top_medicines_chart(filtered_df, 'Poor Review %', 15),
+            create_single_vs_combo_chart(df_comparison_filtered),
+            create_polarization_chart(filtered_df),
             filtered_df.to_dict('records')
         )
     
