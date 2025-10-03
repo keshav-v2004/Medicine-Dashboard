@@ -699,6 +699,79 @@ def create_polarization_boxplot(df_main):
     fig.update_layout(yaxis_title='Polarization Score (Std Dev)')
     return fig
 
+def create_medicine_type_donut(df_main):
+    """Donut chart showing proportion of Single vs Combination medicines"""
+    type_counts = df_main['Medicine Type'].value_counts().reset_index()
+    type_counts.columns = ['Medicine Type', 'Count']
+
+    fig = px.pie(
+        type_counts,
+        names='Medicine Type',
+        values='Count',
+        hole=0.4,
+        title='Medicine Type Distribution (Donut Chart)',
+        color='Medicine Type',
+        color_discrete_map={'Single Ingredient':'#34A853','Combination':'#4285F4','Unknown':'#FBBC04'}
+    )
+    fig.update_traces(textinfo='percent+label')
+    return fig
+
+def create_review_distribution_donut(df_main):
+    """Donut chart showing overall review percentages across all medicines"""
+    review_sums = {
+        'Excellent': df_main['Excellent Review %'].mean(),
+        'Average': df_main['Average Review %'].mean(),
+        'Poor': df_main['Poor Review %'].mean()
+    }
+    review_df = pd.DataFrame(list(review_sums.items()), columns=['Review','Percentage'])
+
+    fig = px.pie(
+        review_df,
+        names='Review',
+        values='Percentage',
+        hole=0.4,
+        title='Overall Review Distribution (Donut Chart)',
+        color='Review',
+        color_discrete_map={'Excellent':'#34A853','Average':'#FBBC04','Poor':'#EA4335'}
+    )
+    fig.update_traces(textinfo='percent+label')
+    return fig
+
+def create_top_indications_bar(df_indication, top_n=15):
+    """Bar chart of top indications colored by average Excellent %"""
+    df_top = df_indication.nlargest(top_n,'Frequency')
+    colors = px.colors.sequential.Blues_r
+    fig = px.bar(
+        df_top,
+        x='Frequency',
+        y=df_top.index,
+        orientation='h',
+        text='Avg Excellent %',
+        color='Avg Excellent %',
+        color_continuous_scale=colors,
+        title=f'Top {top_n} Indications Colored by Avg Excellent %'
+    )
+    fig.update_layout(yaxis={'autorange':'reversed'})
+    return fig
+
+def create_side_effect_bar(df_side_effect, top_n=15):
+    """Bar chart of top side effects colored by Median Poor %"""
+    df_top = df_side_effect.nlargest(top_n,'Frequency')
+    colors = px.colors.sequential.Reds
+    fig = px.bar(
+        df_top,
+        x='Frequency',
+        y=df_top.index,
+        orientation='h',
+        text='Median Poor %',
+        color='Median Poor %',
+        color_continuous_scale=colors,
+        title=f'Top {top_n} Side Effects Colored by Median Poor %'
+    )
+    fig.update_layout(yaxis={'autorange':'reversed'})
+    return fig
+
+
 
 
 # =====================================================================
@@ -706,7 +779,7 @@ def create_polarization_boxplot(df_main):
 # =====================================================================
 
 def create_dashboard(tables, analytics):
-    """Create interactive Dash dashboard with enhanced visualizations including treemap and box plot"""
+    """Enhanced Dash dashboard with KPIs, donut charts, color-coded bars, treemap, and box plot"""
     
     import dash
     from dash import dcc, html, dash_table
@@ -714,7 +787,9 @@ def create_dashboard(tables, analytics):
     
     app = dash.Dash(__name__)
     
+    # ----------------------
     # Data
+    # ----------------------
     df_main = tables['main']
     df_uses = tables['uses']
     df_side_effects = tables['side_effects']
@@ -728,11 +803,11 @@ def create_dashboard(tables, analytics):
     df_side_effect = analytics.get_side_effect_analysis()
     df_comparison = analytics.get_single_vs_combo()
     
-    # -------------------------
+    # ----------------------
     # Layout
-    # -------------------------
+    # ----------------------
     app.layout = html.Div([
-        html.H1("Medicine Review Dashboard", style={'textAlign': 'center', 'color': '#1a73e8', 'marginBottom': '20px'}),
+        html.H1("Medicine Review Dashboard", style={'textAlign':'center','color':'#1a73e8','marginBottom':'20px'}),
         
         # KPI Cards
         html.Div([
@@ -774,11 +849,11 @@ def create_dashboard(tables, analytics):
         
         html.Hr(),
         
-        # Row 1: Pie / Donut Charts
+        # Row 1: Donut Charts
         html.Div([
-            html.Div([dcc.Graph(id='medicine-type-pie', figure=create_medicine_type_pie(df_main))],
+            html.Div([dcc.Graph(id='medicine-type-donut', figure=create_medicine_type_donut(df_main))],
                      style={'width':'48%','display':'inline-block'}),
-            html.Div([dcc.Graph(id='review-distribution-pie', figure=create_review_distribution_pie(df_main))],
+            html.Div([dcc.Graph(id='review-distribution-donut', figure=create_review_distribution_donut(df_main))],
                      style={'width':'48%','display':'inline-block','float':'right'}),
         ]),
         
@@ -790,11 +865,11 @@ def create_dashboard(tables, analytics):
                      style={'width':'48%','display':'inline-block','float':'right'}),
         ]),
         
-        # Row 3: Indications & Side Effects
+        # Row 3: Color-coded Bar Charts for Indications & Side Effects
         html.Div([
-            html.Div([dcc.Graph(id='top-indications', figure=create_indication_bar_chart(df_indication,15))],
+            html.Div([dcc.Graph(id='top-indications', figure=create_top_indications_bar(df_indication,15))],
                      style={'width':'48%','display':'inline-block'}),
-            html.Div([dcc.Graph(id='side-effect-pie', figure=create_side_effect_pie(df_side_effect,10))],
+            html.Div([dcc.Graph(id='side-effects-bar', figure=create_side_effect_bar(df_side_effect,15))],
                      style={'width':'48%','display':'inline-block','float':'right'}),
         ]),
         
@@ -842,16 +917,16 @@ def create_dashboard(tables, analytics):
         ], style={'margin':'20px'})
     ])
     
-    # -------------------------
+    # ----------------------
     # Callback for Filters
-    # -------------------------
+    # ----------------------
     @app.callback(
-        [Output('medicine-type-pie','figure'),
-         Output('review-distribution-pie','figure'),
+        [Output('medicine-type-donut','figure'),
+         Output('review-distribution-donut','figure'),
          Output('top-manufacturers','figure'),
          Output('top-ingredients','figure'),
          Output('top-indications','figure'),
-         Output('side-effect-pie','figure'),
+         Output('side-effects-bar','figure'),
          Output('manufacturer-chart','figure'),
          Output('single-combo-chart','figure'),
          Output('polarization-chart','figure'),
@@ -865,21 +940,21 @@ def create_dashboard(tables, analytics):
     def update_charts(manufacturer_filter, type_filter, excellent_min):
         filtered_df = df_main.copy()
         
-        # Filter by manufacturer
+        # Manufacturer filter
         if manufacturer_filter != 'All' and manufacturer_filter:
             if isinstance(manufacturer_filter,list):
                 filtered_df = filtered_df[filtered_df['Manufacturer'].isin(manufacturer_filter)]
             else:
                 filtered_df = filtered_df[filtered_df['Manufacturer']==manufacturer_filter]
         
-        # Filter by type
+        # Type filter
         if type_filter != 'All' and type_filter:
             if isinstance(type_filter,list):
                 filtered_df = filtered_df[filtered_df['Medicine Type'].isin(type_filter)]
             else:
                 filtered_df = filtered_df[filtered_df['Medicine Type']==type_filter]
         
-        # Filter by min excellent %
+        # Min Excellent %
         filtered_df = filtered_df[filtered_df['Excellent Review %'] >= excellent_min]
         
         # Analytics for filtered data
@@ -896,12 +971,12 @@ def create_dashboard(tables, analytics):
         df_side_effect_filtered = analytics_filtered.get_side_effect_analysis()
         
         return (
-            create_medicine_type_pie(filtered_df),
-            create_review_distribution_pie(filtered_df),
+            create_medicine_type_donut(filtered_df),
+            create_review_distribution_donut(filtered_df),
             create_top_manufacturers_chart(filtered_df,10),
             create_top_ingredients_chart(df_ingredients[df_ingredients['Medicine Name'].isin(filtered_df['Medicine Name'])],15),
-            create_indication_bar_chart(df_indication_filtered,15),
-            create_side_effect_pie(df_side_effect_filtered,10),
+            create_top_indications_bar(df_indication_filtered,15),
+            create_side_effect_bar(df_side_effect_filtered,15),
             create_manufacturer_stacked_bar(df_manufacturer_filtered),
             create_single_vs_combo_chart(df_comparison_filtered),
             create_polarization_chart(filtered_df),
@@ -911,7 +986,6 @@ def create_dashboard(tables, analytics):
         )
     
     return app
-
 
 
 # =====================================================================
