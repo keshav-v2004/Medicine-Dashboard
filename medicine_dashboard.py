@@ -348,41 +348,49 @@ def create_kpi_cards(kpis):
     fig.update_layout(height=200, showlegend=False)
     return fig
 
-def create_manufacturer_stacked_bar(df_manufacturer):
-    """Stacked bar chart of manufacturer performance"""
+def create_manufacturer_stacked_bar(df_manufacturer, top_n=15):
+    """Stacked bar chart of manufacturer performance - top N only"""
+    
+    # Limit to top N by Excellent %
+    df_top = df_manufacturer.nlargest(top_n, 'Avg Excellent %')
+    
     fig = go.Figure()
     
     fig.add_trace(go.Bar(
         name='Excellent',
-        y=df_manufacturer.index,
-        x=df_manufacturer['Avg Excellent %'],
+        y=df_top.index,
+        x=df_top['Avg Excellent %'],
         orientation='h',
         marker_color='#34A853'
     ))
     
     fig.add_trace(go.Bar(
         name='Average',
-        y=df_manufacturer.index,
-        x=df_manufacturer['Avg Average %'],
+        y=df_top.index,
+        x=df_top['Avg Average %'],
         orientation='h',
         marker_color='#FBBC04'
     ))
     
     fig.add_trace(go.Bar(
         name='Poor',
-        y=df_manufacturer.index,
-        x=df_manufacturer['Avg Poor %'],
+        y=df_top.index,
+        x=df_top['Avg Poor %'],
         orientation='h',
         marker_color='#EA4335'
     ))
     
     fig.update_layout(
         barmode='stack',
-        title='Review Distribution by Manufacturer',
+        title=f'Review Distribution by Top {top_n} Manufacturers',
         xaxis_title='Percentage',
         yaxis_title='Manufacturer',
-        height=max(400, len(df_manufacturer) * 25),
-        showlegend=True
+        height=450,  # Fixed, manageable height
+        showlegend=True,
+        yaxis={
+            'automargin': True,
+            'autorange': 'reversed'  # Best performers on top
+        }
     )
     
     return fig
@@ -976,71 +984,145 @@ def create_dashboard(tables, analytics):
         html.Hr(),
         
         # Row 1: Donut Charts
+        # Row 1: Donut Charts with loading now
         html.Div([
-            html.Div([dcc.Graph(id='medicine-type-donut', figure=create_medicine_type_donut(df_main))],
-                     style={'width':'48%','display':'inline-block'}),
-            html.Div([dcc.Graph(id='review-distribution-donut', figure=create_review_distribution_donut(df_main))],
-                     style={'width':'48%','display':'inline-block','float':'right'}),
+            html.Div([
+                dcc.Loading(
+                    id="loading-medicine-type",
+                    type="circle",
+                    children=[dcc.Graph(id='medicine-type-donut', figure=create_medicine_type_donut(df_main))]
+                )
+            ], style={'width':'48%','display':'inline-block'}),
+            html.Div([
+                dcc.Loading(
+                    id="loading-review-dist",
+                    type="circle",
+                    children=[dcc.Graph(id='review-distribution-donut', figure=create_review_distribution_donut(df_main))]
+                )
+            ], style={'width':'48%','display':'inline-block','float':'right'}),
         ]),
         
         # Row 2: Bar Charts
+        # Row 2: Bar Charts WITH LOADING
         html.Div([
-            html.Div([dcc.Graph(id='top-manufacturers', figure=create_top_manufacturers_chart(df_main,10))],
-                     style={'width':'48%','display':'inline-block'}),
-            html.Div([dcc.Graph(id='top-ingredients', figure=create_top_ingredients_chart(df_ingredients,15))],
-                     style={'width':'48%','display':'inline-block','float':'right'}),
+            html.Div([
+                dcc.Loading(
+                    id="loading-manufacturers",
+                    type="circle",
+                    color="#1a73e8",
+                    children=[dcc.Graph(id='top-manufacturers', figure=create_top_manufacturers_chart(df_main,10))]
+                )
+            ], style={'width':'48%','display':'inline-block'}),
+            html.Div([
+                dcc.Loading(
+                    id="loading-ingredients",
+                    type="circle",
+                    color="#1a73e8",
+                    children=[dcc.Graph(id='top-ingredients', figure=create_top_ingredients_chart(df_ingredients,15))]
+                )
+            ], style={'width':'48%','display':'inline-block','float':'right'}),
         ]),
         
         # Row 3: Color-coded Bar Charts for Indications & Side Effects
+        # Row 3: Indications & Side Effects WITH LOADING
         html.Div([
-            html.Div([dcc.Graph(id='top-indications', figure=create_top_indications_bar(df_indication,15))],
-                     style={'width':'48%','display':'inline-block'}),
-            html.Div([dcc.Graph(id='side-effects-bar', figure=create_side_effect_bar(df_side_effect,15))],
-                     style={'width':'48%','display':'inline-block','float':'right'}),
+            html.Div([
+                dcc.Loading(
+                    id="loading-indications",
+                    type="circle",
+                    color="#1a73e8",
+                    children=[dcc.Graph(id='top-indications', figure=create_top_indications_bar(df_indication,15))]
+                )
+            ], style={'width':'48%','display':'inline-block'}),
+            html.Div([
+                dcc.Loading(
+                    id="loading-side-effects",
+                    type="circle",
+                    color="#1a73e8",
+                    children=[dcc.Graph(id='side-effects-bar', figure=create_side_effect_bar(df_side_effect,15))]
+                )
+            ], style={'width':'48%','display':'inline-block','float':'right'}),
         ]),
         
-        # Row 4: Manufacturer & Single vs Combo
+        # Row 4: Manufacturer & Single vs Combo WITH LOADING
         html.Div([
-            html.Div([dcc.Graph(id='manufacturer-chart', figure=create_manufacturer_stacked_bar(df_manufacturer))],
-                     style={'width':'48%','display':'inline-block'}),
-            html.Div([dcc.Graph(id='single-combo-chart', figure=create_single_vs_combo_chart(df_comparison))],
-                     style={'width':'48%','display':'inline-block','float':'right'}),
+            html.Div([
+                dcc.Loading(
+                    id="loading-manufacturer-chart",
+                    type="circle",
+                    color="#1a73e8",
+                    children=[dcc.Graph(id='manufacturer-chart', figure=create_manufacturer_stacked_bar(df_manufacturer))]
+                )
+            ], style={'width':'48%','display':'inline-block'}),
+            html.Div([
+                dcc.Loading(
+                    id="loading-combo",
+                    type="circle",
+                    color="#1a73e8",
+                    children=[dcc.Graph(id='single-combo-chart', figure=create_single_vs_combo_chart(df_comparison))]
+                )
+            ], style={'width':'48%','display':'inline-block','float':'right'}),
         ]),
         
-        # Row 5: Polarization Charts
+        # Row 5: Polarization Charts WITH LOADING
         html.Div([
-            html.Div([dcc.Graph(id='polarization-chart', figure=create_polarization_chart(df_main))],
-                     style={'width':'48%','display':'inline-block'}),
-            html.Div([dcc.Graph(id='polarization-boxplot', figure=create_polarization_boxplot(df_main))],
-                     style={'width':'48%','display':'inline-block','float':'right'}),
+            html.Div([
+                dcc.Loading(
+                    id="loading-polarization",
+                    type="circle",
+                    color="#1a73e8",
+                    children=[dcc.Graph(id='polarization-chart', figure=create_polarization_chart(df_main))]
+                )
+            ], style={'width':'48%','display':'inline-block'}),
+            html.Div([
+                dcc.Loading(
+                    id="loading-boxplot",
+                    type="circle",
+                    color="#1a73e8",
+                    children=[dcc.Graph(id='polarization-boxplot', figure=create_polarization_boxplot(df_main))]
+                )
+            ], style={'width':'48%','display':'inline-block','float':'right'}),
         ]),
         
-        # Row 6: Treemap
+        # Row 6: Treemap WITH LOADING
         html.Div([
-            dcc.Graph(id='ingredient-treemap', figure=create_ingredient_treemap(df_ingredients))
+            dcc.Loading(
+                id="loading-treemap",
+                type="circle",
+                color="#1a73e8",
+                children=[dcc.Graph(id='ingredient-treemap', figure=create_ingredient_treemap(df_ingredients))]
+            )
         ], style={'width':'100%'}),
         
         html.Hr(),
         
         # Medicine Details Table
-        html.Div([
-            html.H3("Medicine Details"),
-            dash_table.DataTable(
-                id='medicine-table',
-                columns=[{'name':c,'id':c} for c in ['Medicine Name','Manufacturer','Medicine Type',
-                                                     'Excellent Review %','Average Review %','Poor Review %',
-                                                     'Review Polarization']],
-                data=df_main.to_dict('records'),
-                page_size=20,
-                sort_action='native',
-                filter_action='native',
-                style_cell={'textAlign':'left'},
-                style_data_conditional=[
-                    {'if':{'column_id':'Excellent Review %'}, 'backgroundColor':'#d4edda','color':'#155724'},
-                    {'if':{'column_id':'Poor Review %'}, 'backgroundColor':'#f8d7da','color':'#721c24'}
-                ]
-            )
-        ], style={'margin':'20px'})
+        # Medicine Details Table WITH LOADING
+                html.Div([
+                    html.H3("Medicine Details"),
+                    dcc.Loading(
+                        id="loading-table",
+                        type="default",  # Different style for table
+                        color="#1a73e8",
+                        children=[
+                            dash_table.DataTable(
+                                id='medicine-table',
+                                columns=[{'name':c,'id':c} for c in ['Medicine Name','Manufacturer','Medicine Type',
+                                                                    'Excellent Review %','Average Review %','Poor Review %',
+                                                                    'Review Polarization']],
+                                data=df_main.to_dict('records'),
+                                page_size=20,
+                                sort_action='native',
+                                filter_action='native',
+                                style_cell={'textAlign':'left'},
+                                style_data_conditional=[
+                                    {'if':{'column_id':'Excellent Review %'}, 'backgroundColor':'#d4edda','color':'#155724'},
+                                    {'if':{'column_id':'Poor Review %'}, 'backgroundColor':'#f8d7da','color':'#721c24'}
+                                ]
+                            )
+                        ]
+                    )
+                ], style={'margin':'20px'})
     ])
     
     # ----------------------
