@@ -1051,7 +1051,7 @@ def create_dashboard(tables, analytics):
                     id="loading-manufacturer-chart",
                     type="circle",
                     color="#1a73e8",
-                    children=[dcc.Graph(id='manufacturer-chart', figure=create_manufacturer_stacked_bar(df_manufacturer))]
+                    children=[dcc.Graph(id='manufacturer-chart', figure=create_manufacturer_stacked_bar(df_manufacturer , 15))]
                 )
             ], style={'width':'48%','display':'inline-block'}),
             html.Div([
