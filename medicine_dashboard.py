@@ -1383,10 +1383,18 @@ def main():
     print("Press Ctrl+C to stop the server")
     
     app = create_dashboard(tables, analytics)
-    app.run(port = 8050)
+    # app.run(port = 8050)
+    return app
 
 if __name__ == '__main__':
-    main()
+    app = main()
+    app.run(debug=False, host="0.0.0.0", port=8050)
+else:
+    # For deployment - Gunicorn will use this
+    app = main()
+    server = app.server
+
+
 
 
 # =====================================================================

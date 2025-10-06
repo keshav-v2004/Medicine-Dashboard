@@ -1,0 +1,1 @@
+web: gunicorn medicine_dashboard:server
