@@ -7,6 +7,7 @@ from plotly.subplots import make_subplots
 import dash
 from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
+import dash_bootstrap_components as dbc
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -787,515 +788,216 @@ def create_side_effect_bar(df_side_effect, top_n=15):
 # =====================================================================
 
 def create_dashboard(tables, analytics):
-    """Enhanced Dash dashboard with KPIs, donut charts, color-coded bars, treemap, and box plot"""
+    """Enhanced Dash dashboard with a sidebar theme and interactive charts"""
+
+    # Use the FLATLY theme for a clean base, plus Font Awesome icons
+    FA = "https://use.fontawesome.com/releases/v5.15.4/css/all.css"
+    app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY, FA])
     
-    import dash
-    from dash import dcc, html, dash_table
-    from dash.dependencies import Input, Output
-    
-    app = dash.Dash(__name__)
-    
-    # ----------------------
-    # Data
-    # ----------------------
+    # --- Data (same as your original code) ---
     df_main = tables['main']
     df_uses = tables['uses']
     df_side_effects = tables['side_effects']
     df_ingredients = tables['ingredients']
     
-    # Analytics
     kpis = analytics.calculate_kpis()
     df_manufacturer = analytics.get_manufacturer_performance()
-    df_ingredient_stats = analytics.get_ingredient_performance()
-    df_indication = analytics.get_indication_analysis()
-    df_side_effect = analytics.get_side_effect_analysis()
     df_comparison = analytics.get_single_vs_combo()
-    
-    # ----------------------
-    # Layout
-    # ----------------------
-    app.layout = html.Div([
-        html.H1("Medicine Review Dashboard", style={'textAlign':'center','color':'#1a73e8','marginBottom':'20px'}),
-        
-        # KPI Cards
-        html.Div([
-            html.Div([html.H3("Total Medicines"), html.H2(f"{kpis['total_medicines']}", style={'color':'#1a73e8'})],
-                     className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
-                                                  'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
-            html.Div([html.H3("Manufacturers"), html.H2(f"{kpis['unique_manufacturers']}", style={'color':'#1a73e8'})],
-                     className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
-                                                  'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
-            html.Div([html.H3("Unique Ingredients"), html.H2(f"{kpis['unique_ingredients']}", style={'color':'#1a73e8'})],
-                     className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
-                                                  'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
-            html.Div([html.H3("Avg Excellent %"), html.H2(f"{kpis['avg_excellent']:.1f}%", style={'color':'#34A853'})],
-                     className='kpi-card', style={'display':'inline-block','width':'23%','padding':'20px','margin':'10px',
-                                                  'backgroundColor':'#f8f9fa','borderRadius':'10px'}),
-        ], style={'textAlign':'center'}),
-        
-        html.Hr(),
-        
-        
-        # Filters Section - REPLACE ENTIRE SECTION
-        html.Div([
-            html.H3("Filters & Search", style={'marginBottom':'15px','color':'#1a73e8'}),
+ 
+    # ==============================================================================
+    # 1. LAYOUT DEFINITION
+    # ==============================================================================
+
+    # --- SIDEBAR ---
+    sidebar = html.Div(
+        [
+            html.H2("💊 MedReview", className="text-primary text-center"),
+            html.P("Dashboard & Analytics", className="text-center text-muted"),
+            html.Hr(),
             
-            # Row 1: Dropdowns
-            html.Div([
-                html.Div([
-                    html.Label("Manufacturer:", style={'fontWeight':'bold'}), 
-                    dcc.Dropdown(
-                        id='manufacturer-filter',
-                        options=[{'label':'All','value':'All'}]+
-                                [{'label':m,'value':m} for m in sorted(df_main['Manufacturer'].unique())],
-                        value='All', 
-                        multi=True,
-                        placeholder="Select manufacturer(s)..."
-                    )
-                ], style={'width':'32%','display':'inline-block','padding':'10px','verticalAlign':'top'}),
-                
-                html.Div([
-                    html.Label("Medicine Type:", style={'fontWeight':'bold'}), 
-                    dcc.Dropdown(
-                        id='type-filter',
-                        options=[{'label':'All','value':'All'}]+
-                                [{'label':t,'value':t} for t in df_main['Medicine Type'].unique()],
-                        value='All', 
-                        multi=True,
-                        placeholder="Select type(s)..."
-                    )
-                ], style={'width':'32%','display':'inline-block','padding':'10px','verticalAlign':'top'}),
-                
-                html.Div([
-                    html.Label("Min Excellent %:", style={'fontWeight':'bold'}), 
-                    dcc.Slider(
-                        id='excellent-slider', 
-                        min=0, 
-                        max=100, 
-                        step=5, 
-                        value=0,
-                        marks={i:str(i) for i in range(0,101,20)},
-                        tooltip={"placement": "bottom", "always_visible": True}
-                    )
-                ], style={'width':'32%','display':'inline-block','padding':'10px','verticalAlign':'top'}),
-            ]),
+            # Filters are now in the sidebar
+            html.H4("Filters", className="mt-4"),
+            dbc.Label("Manufacturer:"),
+            dcc.Dropdown(
+                id='manufacturer-filter',
+                options=[{'label': m, 'value': m} for m in sorted(df_main['Manufacturer'].unique())],
+                value=[], multi=True, placeholder="Select Manufacturer(s)..."
+            ),
+            dbc.Label("Medicine Type:", className="mt-3"),
+            dcc.Dropdown(
+                id='type-filter',
+                options=[{'label': t, 'value': t} for t in df_main['Medicine Type'].unique()],
+                value=[], multi=True, placeholder="Select Type(s)..."
+            ),
+            dbc.Label("Min Excellent %:", className="mt-3"),
+            dcc.Slider(
+                id='excellent-slider', min=0, max=100, step=5, value=0,
+                marks={i: str(i) for i in range(0, 101, 20)},
+                tooltip={"placement": "bottom", "always_visible": True}
+            ),
+            html.Hr(),
+            dbc.Label("Search Medicine Name:", className="mt-3"),
+            dbc.Input(id='medicine-search', placeholder='e.g., Aspirin...', debounce=True),
             
-            # Row 2: Search Fields - NEW SECTION
-            html.Div([
-                html.Div([
-                    html.Label("Search Medicine Name:", style={'fontWeight':'bold'}),
-                    dcc.Input(
-                        id='medicine-search',
-                        type='text',
-                        placeholder='Type medicine name (e.g., Aspirin)...',
-                        value='',
-                        debounce=True,  # Wait for user to stop typing
-                        style={
-                            'width':'100%',
-                            'padding':'8px',
-                            'borderRadius':'5px',
-                            'border':'1px solid #ccc',
-                            'fontSize':'14px'
-                        }
-                    ),
-                    html.Small("Case-insensitive partial match", 
-                            style={'color':'#666','fontSize':'11px'})
-                ], style={'width':'32%','display':'inline-block','padding':'10px','verticalAlign':'top'}),
-                
-                html.Div([
-                    html.Label("Search Ingredient:", style={'fontWeight':'bold'}),
-                    dcc.Input(
-                        id='ingredient-search',
-                        type='text',
-                        placeholder='Type ingredient name...',
-                        value='',
-                        debounce=True,
-                        style={
-                            'width':'100%',
-                            'padding':'8px',
-                            'borderRadius':'5px',
-                            'border':'1px solid #ccc',
-                            'fontSize':'14px'
-                        }
-                    ),
-                    html.Small("Find medicines containing this ingredient", 
-                            style={'color':'#666','fontSize':'11px'})
-                ], style={'width':'32%','display':'inline-block','padding':'10px','verticalAlign':'top'}),
-                
-                html.Div([
-                    html.Label("Search Uses/Indication:", style={'fontWeight':'bold'}),
-                    dcc.Input(
-                        id='indication-search',
-                        type='text',
-                        placeholder='Type condition (e.g., headache)...',
-                        value='',
-                        debounce=True,
-                        style={
-                            'width':'100%',
-                            'padding':'8px',
-                            'borderRadius':'5px',
-                            'border':'1px solid #ccc',
-                            'fontSize':'14px'
-                        }
-                    ),
-                    html.Small("Find medicines for specific conditions", 
-                            style={'color':'#666','fontSize':'11px'})
-                ], style={'width':'32%','display':'inline-block','padding':'10px','verticalAlign':'top'}),
-            ]),
+            dbc.Label("Search Ingredient:", className="mt-3"),
+            dbc.Input(id='ingredient-search', placeholder='e.g., Paracetamol...', debounce=True),
             
-            # Row 3: Clear Filters Button and Results Count - NEW SECTION
-            html.Div([
-                html.Button(
-                    "Clear All Filters",
-                    id="clear-filters-btn",
-                    n_clicks=0,
-                    style={
-                        'padding':'10px 20px',
-                        'backgroundColor':'#EA4335',
-                        'color':'white',
-                        'border':'none',
-                        'borderRadius':'5px',
-                        'cursor':'pointer',
-                        'fontSize':'14px',
-                        'fontWeight':'bold'
-                    }
-                ),
-                html.Div(
-                    id='filter-results-count',
-                    style={
-                        'display':'inline-block',
-                        'marginLeft':'20px',
-                        'padding':'10px',
-                        'fontSize':'16px',
-                        'fontWeight':'bold',
-                        'color':'#1a73e8'
-                    }
-                )
-            ], style={'padding':'10px','textAlign':'center'}),
-            
-        ], style={
-            'backgroundColor':'#e8f0fe',
-            'padding':'20px',
-            'borderRadius':'10px',
-            'margin':'20px',
-            'boxShadow':'0 2px 4px rgba(0,0,0,0.1)'
-        }),
-        
-        html.Hr(),
-        
-        # Row 1: Donut Charts
-        # Row 1: Donut Charts with loading now
-        html.Div([
-            html.Div([
-                dcc.Loading(
-                    id="loading-medicine-type",
-                    type="circle",
-                    children=[dcc.Graph(id='medicine-type-donut', figure=create_medicine_type_donut(df_main))]
-                )
-            ], style={'width':'48%','display':'inline-block'}),
-            html.Div([
-                dcc.Loading(
-                    id="loading-review-dist",
-                    type="circle",
-                    children=[dcc.Graph(id='review-distribution-donut', figure=create_review_distribution_donut(df_main))]
-                )
-            ], style={'width':'48%','display':'inline-block','float':'right'}),
-        ]),
-        
-        # Row 2: Bar Charts
-        # Row 2: Bar Charts WITH LOADING
-        html.Div([
-            html.Div([
-                dcc.Loading(
-                    id="loading-manufacturers",
-                    type="circle",
-                    color="#1a73e8",
-                    children=[dcc.Graph(id='top-manufacturers', figure=create_top_manufacturers_chart(df_main,10))]
-                )
-            ], style={'width':'48%','display':'inline-block'}),
-            html.Div([
-                dcc.Loading(
-                    id="loading-ingredients",
-                    type="circle",
-                    color="#1a73e8",
-                    children=[dcc.Graph(id='top-ingredients', figure=create_top_ingredients_chart(df_ingredients,15))]
-                )
-            ], style={'width':'48%','display':'inline-block','float':'right'}),
-        ]),
-        
-        # Row 3: Color-coded Bar Charts for Indications & Side Effects
-        # Row 3: Indications & Side Effects WITH LOADING
-        html.Div([
-            html.Div([
-                dcc.Loading(
-                    id="loading-indications",
-                    type="circle",
-                    color="#1a73e8",
-                    children=[dcc.Graph(id='top-indications', figure=create_top_indications_bar(df_indication,15))]
-                )
-            ], style={'width':'48%','display':'inline-block'}),
-            html.Div([
-                dcc.Loading(
-                    id="loading-side-effects",
-                    type="circle",
-                    color="#1a73e8",
-                    children=[dcc.Graph(id='side-effects-bar', figure=create_side_effect_bar(df_side_effect,15))]
-                )
-            ], style={'width':'48%','display':'inline-block','float':'right'}),
-        ]),
-        
-        # Row 4: Manufacturer & Single vs Combo WITH LOADING
-        html.Div([
-            html.Div([
-                dcc.Loading(
-                    id="loading-manufacturer-chart",
-                    type="circle",
-                    color="#1a73e8",
-                    children=[dcc.Graph(id='manufacturer-chart', figure=create_manufacturer_stacked_bar(df_manufacturer , 15))]
-                )
-            ], style={'width':'48%','display':'inline-block'}),
-            html.Div([
-                dcc.Loading(
-                    id="loading-combo",
-                    type="circle",
-                    color="#1a73e8",
-                    children=[dcc.Graph(id='single-combo-chart', figure=create_single_vs_combo_chart(df_comparison))]
-                )
-            ], style={'width':'48%','display':'inline-block','float':'right'}),
-        ]),
-        
-        # Row 5: Polarization Charts WITH LOADING
-        html.Div([
-            html.Div([
-                dcc.Loading(
-                    id="loading-polarization",
-                    type="circle",
-                    color="#1a73e8",
-                    children=[dcc.Graph(id='polarization-chart', figure=create_polarization_chart(df_main))]
-                )
-            ], style={'width':'48%','display':'inline-block'}),
-            html.Div([
-                dcc.Loading(
-                    id="loading-boxplot",
-                    type="circle",
-                    color="#1a73e8",
-                    children=[dcc.Graph(id='polarization-boxplot', figure=create_polarization_boxplot(df_main))]
-                )
-            ], style={'width':'48%','display':'inline-block','float':'right'}),
-        ]),
-        
-        # Row 6: Treemap WITH LOADING
-        html.Div([
-            dcc.Loading(
-                id="loading-treemap",
-                type="circle",
-                color="#1a73e8",
-                children=[dcc.Graph(id='ingredient-treemap', figure=create_ingredient_treemap(df_ingredients))]
-            )
-        ], style={'width':'100%'}),
-        
-        html.Hr(),
-        
-        # Medicine Details Table
-        # Medicine Details Table WITH LOADING
-                html.Div([
-                    html.H3("Medicine Details"),
-                    dcc.Loading(
-                        id="loading-table",
-                        type="default",  # Different style for table
-                        color="#1a73e8",
-                        children=[
-                            dash_table.DataTable(
-                                id='medicine-table',
-                                columns=[{'name':c,'id':c} for c in ['Medicine Name','Manufacturer','Medicine Type',
-                                                                    'Excellent Review %','Average Review %','Poor Review %',
-                                                                    'Review Polarization']],
-                                data=df_main.to_dict('records'),
-                                page_size=20,
-                                sort_action='native',
-                                filter_action='native',
-                                style_cell={'textAlign':'left'},
-                                style_data_conditional=[
-                                    {'if':{'column_id':'Excellent Review %'}, 'backgroundColor':'#d4edda','color':'#155724'},
-                                    {'if':{'column_id':'Poor Review %'}, 'backgroundColor':'#f8d7da','color':'#721c24'}
-                                ]
-                            )
-                        ]
-                    )
-                ], style={'margin':'20px'})
-    ])
-    
-    # ----------------------
-    # Callback for Filters
-    # ----------------------
-# ----------------------
-    # Enhanced Callback with Search - REPLACE EXISTING CALLBACK
-    # ----------------------
-    @app.callback(
-        [Output('medicine-type-donut','figure'),
-        Output('review-distribution-donut','figure'),
-        Output('top-manufacturers','figure'),
-        Output('top-ingredients','figure'),
-        Output('top-indications','figure'),
-        Output('side-effects-bar','figure'),
-        Output('manufacturer-chart','figure'),
-        Output('single-combo-chart','figure'),
-        Output('polarization-chart','figure'),
-        Output('polarization-boxplot','figure'),
-        Output('ingredient-treemap','figure'),
-        Output('medicine-table','data'),
-        Output('filter-results-count','children')],  # NEW OUTPUT
-        
-        [Input('manufacturer-filter','value'),
-        Input('type-filter','value'),
-        Input('excellent-slider','value'),
-        Input('medicine-search','value'),      # NEW INPUT
-        Input('ingredient-search','value'),    # NEW INPUT
-        Input('indication-search','value')]    # NEW INPUT
-        
+            dbc.Label("Search Uses/Indication:", className="mt-3"),
+            dbc.Input(id='indication-search', placeholder='e.g., headache...', debounce=True),
+        ],
+        className="sidebar",
     )
 
+    # --- MAIN CONTENT ---
+    content = html.Div(
+        [
+            # --- KPI Cards using the new theme ---
+            dbc.Row([
+                dbc.Col(html.Div([
+                    html.I(className="fas fa-pills card-icon"),
+                    html.Div([
+                        html.P("Total Medicines", className="card-title"),
+                        html.H3(kpis['total_medicines'], className="card-value"),
+                    ])
+                ], className="kpi-card"), lg=3, md=6),
+                dbc.Col(html.Div([
+                    html.I(className="fas fa-industry card-icon"),
+                    html.Div([
+                        html.P("Unique Manufacturers", className="card-title"),
+                        html.H3(kpis['unique_manufacturers'], className="card-value"),
+                    ])
+                ], className="kpi-card"), lg=3, md=6),
+                dbc.Col(html.Div([
+                    html.I(className="fas fa-flask card-icon"),
+                    html.Div([
+                        html.P("Unique Ingredients", className="card-title"),
+                        html.H3(kpis['unique_ingredients'], className="card-value"),
+                    ])
+                ], className="kpi-card"), lg=3, md=6),
+                dbc.Col(html.Div([
+                    html.I(className="fas fa-check-circle card-icon"),
+                    html.Div([
+                        html.P("Avg. Excellent %", className="card-title"),
+                        html.H3(f"{kpis['avg_excellent']:.1f}%", className="card-value"),
+                    ])
+                ], className="kpi-card"), lg=3, md=6),
+            ]),
+            
+            # --- Charts ---
+            # All chart cards now use the new `chart-card` class from style.css
+            dbc.Row([
+                dbc.Col(dbc.Card([dbc.CardHeader("Distribution by Medicine Type"), dbc.CardBody(dcc.Loading(dcc.Graph(id='medicine-type-donut')))], className="chart-card"), lg=6, className="mb-4"),
+                dbc.Col(dbc.Card([dbc.CardHeader("Overall Review Distribution"), dbc.CardBody(dcc.Loading(dcc.Graph(id='review-distribution-donut')))], className="chart-card"), lg=6, className="mb-4"),
+                dbc.Col(dbc.Card([dbc.CardHeader("Top 10 Manufacturers by Medicine Count"), dbc.CardBody(dcc.Loading(dcc.Graph(id='top-manufacturers')))], className="chart-card"), lg=6, className="mb-4"),
+                dbc.Col(dbc.Card([dbc.CardHeader("Top 15 Most Common Ingredients"), dbc.CardBody(dcc.Loading(dcc.Graph(id='top-ingredients')))], className="chart-card"), lg=6, className="mb-4"),
+                dbc.Col(dbc.Card([dbc.CardHeader("Top 15 Common Uses/Indications"), dbc.CardBody(dcc.Loading(dcc.Graph(id='top-indications')))], className="chart-card"), lg=6, className="mb-4"),
+                dbc.Col(dbc.Card([dbc.CardHeader("Top 15 Reported Side Effects"), dbc.CardBody(dcc.Loading(dcc.Graph(id='side-effects-bar')))], className="chart-card"), lg=6, className="mb-4"),
+                dbc.Col(dbc.Card([dbc.CardHeader("Review Distribution by Manufacturer"), dbc.CardBody(dcc.Loading(dcc.Graph(id='manufacturer-chart')))], className="chart-card"), lg=6, className="mb-4"),
+                dbc.Col(dbc.Card([dbc.CardHeader("Single vs. Combination Medicine Analysis"), dbc.CardBody(dcc.Loading(dcc.Graph(id='single-combo-chart')))], className="chart-card"), lg=6, className="mb-4"),
+                dbc.Col(dbc.Card([dbc.CardHeader("Review Polarization Distribution"), dbc.CardBody(dcc.Loading(dcc.Graph(id='polarization-chart')))], className="chart-card"), lg=6, className="mb-4"),
+                dbc.Col(dbc.Card([dbc.CardHeader("Polarization by Medicine Type (Box Plot)"), dbc.CardBody(dcc.Loading(dcc.Graph(id='polarization-boxplot')))], className="chart-card"), lg=6, className="mb-4"),
+                dbc.Col(dbc.Card([dbc.CardHeader("Ingredient Composition Treemap"), dbc.CardBody(dcc.Loading(dcc.Graph(id='ingredient-treemap')))], className="chart-card"), width=12, className="mb-4"),
+            ]),
+            
+            # --- Data Table ---
+            dbc.Row([
+                dbc.Col(dbc.Card([
+                    dbc.CardHeader("Detailed Medicine Data"),
+                    dbc.CardBody(dcc.Loading(dash_table.DataTable(
+                        id='medicine-table',
+                        columns=[{'name': c, 'id': c} for c in df_main.columns],
+                        page_size=15, sort_action='native',
+                        style_cell={'textAlign': 'left', 'padding': '10px'},
+                        style_header={'fontWeight': 'bold'},
+                        style_table={'overflowX': 'auto'}
+                    )))
+                ], className="chart-card"), width=12, className="mb-5")
+            ])
+        ],
+        className="content",
+    )
+
+    # --- Final Layout ---
+    app.layout = html.Div([sidebar, content])
+
+    # ==============================================================================
+    # 2. CALLBACKS
+    # ==============================================================================
     
+    # Note: Your callback logic is excellent and complex. I've adapted it to the
+    # new filter values (e.g., using empty lists `[]` for multi-select defaults).
+    # I have removed the 'filter-results-count' Output as it was part of the old layout.
+    @app.callback(
+        [Output('medicine-type-donut','figure'),
+         Output('review-distribution-donut','figure'),
+         Output('top-manufacturers','figure'),
+         Output('top-ingredients','figure'),
+         Output('top-indications','figure'),
+         Output('side-effects-bar','figure'),
+         Output('manufacturer-chart','figure'),
+         Output('single-combo-chart','figure'),
+         Output('polarization-chart','figure'),
+         Output('polarization-boxplot','figure'),
+         Output('ingredient-treemap','figure'),
+         Output('medicine-table','data')],
+        
+        [Input('manufacturer-filter','value'),
+         Input('type-filter','value'),
+         Input('excellent-slider','value'),
+         Input('medicine-search','value'),
+         Input('ingredient-search','value'),
+         Input('indication-search','value')]
+    )
     def update_charts(manufacturer_filter, type_filter, excellent_min, 
-                    medicine_search, ingredient_search, indication_search):
-        """
-        Enhanced callback with comprehensive search functionality
-        """
+                      medicine_search, ingredient_search, indication_search):
         
-        # Start with full dataset
         filtered_df = df_main.copy()
-        filtered_ingredients = df_ingredients.copy()
-        filtered_uses = df_uses.copy()
-        filtered_side_effects = df_side_effects.copy()
         
-        # Track filtering reasons for debugging
-        initial_count = len(filtered_df)
+        # --- Apply Filters ---
+        if manufacturer_filter:
+            filtered_df = filtered_df[filtered_df['Manufacturer'].isin(manufacturer_filter)]
         
-        # ============================================================
-        # FILTER 1: Manufacturer
-        # ============================================================
-        if manufacturer_filter != 'All' and manufacturer_filter:
-            if isinstance(manufacturer_filter, list):
-                if 'All' not in manufacturer_filter:
-                    filtered_df = filtered_df[filtered_df['Manufacturer'].isin(manufacturer_filter)]
-            else:
-                filtered_df = filtered_df[filtered_df['Manufacturer'] == manufacturer_filter]
-        
-        # ============================================================
-        # FILTER 2: Medicine Type
-        # ============================================================
-        if type_filter != 'All' and type_filter:
-            if isinstance(type_filter, list):
-                if 'All' not in type_filter:
-                    filtered_df = filtered_df[filtered_df['Medicine Type'].isin(type_filter)]
-            else:
-                filtered_df = filtered_df[filtered_df['Medicine Type'] == type_filter]
-        
-        # ============================================================
-        # FILTER 3: Minimum Excellence Threshold
-        # ============================================================
-        filtered_df = filtered_df[filtered_df['Excellent Review %'] >= excellent_min]
-        
-        # ============================================================
-        # SEARCH 1: Medicine Name (case-insensitive partial match)
-        # ============================================================
-        if medicine_search and medicine_search.strip():
-            search_term = medicine_search.strip().lower()
-            filtered_df = filtered_df[
-                filtered_df['Medicine Name'].str.lower().str.contains(search_term, na=False)
-            ]
-        
-        # ============================================================
-        # SEARCH 2: Ingredient Name
-        # ============================================================
-        if ingredient_search and ingredient_search.strip():
-            search_term = ingredient_search.strip().lower()
+        if type_filter:
+            filtered_df = filtered_df[filtered_df['Medicine Type'].isin(type_filter)]
             
-            # Find medicines containing this ingredient
-            matching_ingredients = filtered_ingredients[
-                filtered_ingredients['Ingredient Name'].str.lower().str.contains(search_term, na=False)
-            ]
-            matching_medicine_names = matching_ingredients['Medicine Name'].unique()
-            
-            # Filter main dataframe to only these medicines
-            filtered_df = filtered_df[filtered_df['Medicine Name'].isin(matching_medicine_names)]
+        if excellent_min > 0:
+            filtered_df = filtered_df[filtered_df['Excellent Review %'] >= excellent_min]
         
-        # ============================================================
-        # SEARCH 3: Indication/Use
-        # ============================================================
-        if indication_search and indication_search.strip():
-            search_term = indication_search.strip().lower()
-            
-            # Find medicines used for this indication
-            matching_uses = filtered_uses[
-                filtered_uses['Indication'].str.lower().str.contains(search_term, na=False)
-            ]
-            matching_medicine_names = matching_uses['Medicine Name'].unique()
-            
-            # Filter main dataframe
-            filtered_df = filtered_df[filtered_df['Medicine Name'].isin(matching_medicine_names)]
+        # --- Apply Search ---
+        if medicine_search:
+            filtered_df = filtered_df[filtered_df['Medicine Name'].str.contains(medicine_search, case=False, na=False)]
         
-        # ============================================================
-        # Update Related Tables Based on Filtered Medicines
-        # ============================================================
-        filtered_medicine_names = filtered_df['Medicine Name'].unique()
-        filtered_ingredients = filtered_ingredients[
-            filtered_ingredients['Medicine Name'].isin(filtered_medicine_names)
-        ]
-        filtered_uses = filtered_uses[
-            filtered_uses['Medicine Name'].isin(filtered_medicine_names)
-        ]
-        filtered_side_effects = filtered_side_effects[
-            filtered_side_effects['Medicine Name'].isin(filtered_medicine_names)
-        ]
-        
-        # ============================================================
-        # Handle Empty Results
-        # ============================================================
-        if len(filtered_df) == 0:
-            # Create empty figures with messages
-            empty_fig = go.Figure()
-            empty_fig.add_annotation(
-                text="No medicines match your filters. Try adjusting your criteria.",
-                xref="paper", yref="paper",
-                x=0.5, y=0.5, showarrow=False,
-                font=dict(size=16, color="red")
-            )
+        if ingredient_search:
+            matching_meds = df_ingredients[df_ingredients['Ingredient Name'].str.contains(ingredient_search, case=False, na=False)]['Medicine Name'].unique()
+            filtered_df = filtered_df[filtered_df['Medicine Name'].isin(matching_meds)]
             
-            return (
-                empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, empty_fig,
-                empty_fig, empty_fig, empty_fig, empty_fig, empty_fig,
-                [],
-                html.Span("No results found", style={'color':'#EA4335'})
-            )
+        if indication_search:
+            matching_meds = df_uses[df_uses['Indication'].str.contains(indication_search, case=False, na=False)]['Medicine Name'].unique()
+            filtered_df = filtered_df[filtered_df['Medicine Name'].isin(matching_meds)]
         
-        # ============================================================
-        # Recalculate Analytics for Filtered Data
-        # ============================================================
-        analytics_filtered = MedicineAnalytics({
-            'main': filtered_df,
-            'uses': filtered_uses,
-            'side_effects': filtered_side_effects,
-            'ingredients': filtered_ingredients
+        # --- Handle Empty Results ---
+        if filtered_df.empty:
+            empty_fig = go.Figure().add_annotation(text="No results found", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+            return [empty_fig] * 11 + [[]] # 11 empty figures, 1 empty list for the table data
+
+        # --- Update Related Tables ---
+        filtered_med_names = filtered_df['Medicine Name'].unique()
+        filtered_ingredients = df_ingredients[df_ingredients['Medicine Name'].isin(filtered_med_names)]
+        filtered_uses = df_uses[df_uses['Medicine Name'].isin(filtered_med_names)]
+        filtered_side_effects = df_side_effects[df_side_effects['Medicine Name'].isin(filtered_med_names)]
+
+        # --- Recalculate Analytics on Filtered Data ---
+        analytics_filtered = analytics.__class__({ # Re-instantiate analytics with filtered data
+            'main': filtered_df, 'uses': filtered_uses,
+            'side_effects': filtered_side_effects, 'ingredients': filtered_ingredients
         })
-        
-        df_manufacturer_filtered = analytics_filtered.get_manufacturer_performance()
-        df_comparison_filtered = analytics_filtered.get_single_vs_combo()
         df_indication_filtered = analytics_filtered.get_indication_analysis()
         df_side_effect_filtered = analytics_filtered.get_side_effect_analysis()
+        df_manufacturer_filtered = analytics_filtered.get_manufacturer_performance()
+        df_comparison_filtered = analytics_filtered.get_single_vs_combo()
         
-        # ============================================================
-        # Create Results Summary
-        # ============================================================
-        results_count = html.Div([
-            html.Span(f"Showing {len(filtered_df)} ", style={'fontSize':'18px'}),
-            html.Span(f"of {initial_count} medicines", style={'fontSize':'14px','color':'#666'})
-        ])
-        
-        # ============================================================
-        # Return All Updated Figures
-        # ============================================================
-        return (
+
+        return [
             create_medicine_type_donut(filtered_df),
             create_review_distribution_donut(filtered_df),
             create_top_manufacturers_chart(filtered_df, 10),
@@ -1307,34 +1009,10 @@ def create_dashboard(tables, analytics):
             create_polarization_chart(filtered_df),
             create_polarization_boxplot(filtered_df),
             create_ingredient_treemap(filtered_ingredients),
-            filtered_df.to_dict('records'),
-            results_count
-        )
-    
-        # ^^^ First callback ends here
-    
-    # ----------------------
-    # Clear Filters Callback - ADD THIS NEW CALLBACK BELOW
-    # ----------------------
-    @app.callback(
-        [Output('manufacturer-filter', 'value'),
-         Output('type-filter', 'value'),
-         Output('excellent-slider', 'value'),
-         Output('medicine-search', 'value'),
-         Output('ingredient-search', 'value'),
-         Output('indication-search', 'value')],
-        [Input('clear-filters-btn', 'n_clicks')],
-        prevent_initial_call=True  # Prevents callback from running on page load
-    )
-    def clear_filters(n_clicks):
-        """Reset all filters to default values when button is clicked"""
-        if n_clicks and n_clicks > 0:
-            return 'All', 'All', 0, '', '', ''
-        return dash.no_update
-    
-    
+            filtered_df.to_dict('records')
+        ]
+        
     return app
-
 
 
 # =====================================================================
